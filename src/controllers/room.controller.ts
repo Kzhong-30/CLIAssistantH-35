@@ -36,7 +36,7 @@ export class RoomController {
   async createRoom(@Body() createRoomDto: CreateRoomDto): Promise<CreateRoomResponseDto> {
     const roomId = nanoid(12);
     const maxParticipants = createRoomDto.maxParticipants || 10;
-    const hostId = nanoid(8);
+    const hostId = "";
 
     const room = await this.roomStateService.createRoom(
       roomId,
@@ -144,7 +144,7 @@ export class RoomController {
       throw new NotFoundException('Room not found');
     }
 
-    if (room.hostId !== recordingDto.hostId) {
+    if (room.hostId !== recordingDto.hostId || !room.hostId) {
       throw new UnauthorizedException('Only the room host can manage recording');
     }
 

@@ -22,6 +22,18 @@ export class HistoryService {
     private readonly recordingLogRepo: Repository<RecordingLog>,
   ) {}
 
+  async updateRoomHostId(roomId: string, hostId: string): Promise<void> {
+    try {
+      const room = await this.roomHistoryRepo.findOne({ where: { roomId } });
+      if (room) {
+        room.hostId = hostId;
+        await this.roomHistoryRepo.save(room);
+      }
+    } catch (e) {
+      this.logger.error(`Failed to update room hostId: `);
+    }
+  }
+
   async createRoomHistory(
     roomId: string,
     name: string,

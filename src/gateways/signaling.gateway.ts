@@ -75,11 +75,15 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: JoinRoomPayload,
   ): Promise<any> {
-    const { roomId, name } = payload;
+    const { roomId, name, password } = payload;
 
     const room = await this.roomStateService.getRoom(roomId);
     if (!room) {
       return this.sendError(client, 'join', 'Room not found');
+    }
+
+    if (room.temporaryPassword && password !== room.temporaryPassword) {
+      return this.sendError(client, 'join', 'Invalid room password');
     }
 
     const participantId = nanoid(8);
@@ -134,6 +138,7 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
 
     if (isHost) {
       await this.roomStateService.updateRoomField(roomId, 'hostId', participantId);
+      await this.historyService.updateRoomHostId(roomId, participantId);
     }
 
     await this.roomStateService.addParticipant(roomId, participant);
