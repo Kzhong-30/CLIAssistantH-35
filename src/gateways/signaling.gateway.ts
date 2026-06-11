@@ -51,6 +51,7 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
 
   private readonly logger = new Logger(SignalingGateway.name);
   private readonly socketToParticipantMap = new Map<string, { roomId: string; participantId: string }>();
+  private readonly socketIdToSocketMap = new Map<string, Socket>();
 
   constructor(
     private readonly roomStateService: RoomStateService,
@@ -58,10 +59,12 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
   ) {}
 
   handleConnection(client: Socket): void {
+    this.socketIdToSocketMap.set(client.id, client);
     this.logger.log(`Client connected: ${client.id}`);
   }
 
   async handleDisconnect(client: Socket): Promise<void> {
+    this.socketIdToSocketMap.delete(client.id);
     this.logger.log(`Client disconnected: ${client.id}`);
     const mapping = this.socketToParticipantMap.get(client.id);
     if (mapping) {
@@ -593,8 +596,8 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
     const participant = participants.get(participantId);
     if (!participant) return null;
 
-    const socket = this.server.sockets.sockets.get(participant.socketId);
-    return socket || null;
+    return this.socketIdToSocketMap.get(participant.socketId) || null;
+    // removed - using direct map return above
   }
 
   private sendError(client: Socket, event: string, message: string): any {

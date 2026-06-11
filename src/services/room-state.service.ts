@@ -38,10 +38,44 @@ export class RoomStateService implements OnModuleInit {
 
   constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
 
+
+  private async syncMemoryToRedis(): Promise<void> {
+    try {
+      for (const [roomId, room] of this.memoryRooms.entries()) {
+        await this.redis.hmset(this.ROOM_KEY_PREFIX + roomId, this.objectToRecord(room));
+        await this.redis.expire(this.ROOM_KEY_PREFIX + roomId, 86400);
+      }
+      for (const [roomId, participants] of this.memoryParticipants.entries()) {
+        for (const [participantId, participant] of participants.entries()) {
+          await this.redis.hset(this.PARTICIPANT_KEY_PREFIX + roomId, participantId, JSON.stringify(participant));
+        }
+        await this.redis.expire(this.PARTICIPANT_KEY_PREFIX + roomId, 86400);
+      }
+      for (const [roomId, queue] of this.memoryWaitingQueue.entries()) {
+        if (queue.length > 0) {
+          for (const p of queue) {
+            await this.redis.rpush(this.WAITING_QUEUE_PREFIX + roomId, JSON.stringify(p));
+          }
+          await this.redis.expire(this.WAITING_QUEUE_PREFIX + roomId, 86400);
+        }
+      }
+      for (const [roomId, stats] of this.memoryStats.entries()) {
+        await this.redis.hmset(this.STATS_KEY_PREFIX + roomId, { totalParticipants: String(stats.totalParticipants), peakParticipants: String(stats.peakParticipants) });
+        await this.redis.expire(this.STATS_KEY_PREFIX + roomId, 86400);
+      }
+      const roomCount = this.memoryRooms.size;
+      if (roomCount > 0) {
+        this.logger.log("Synced " + roomCount + " rooms from memory to Redis after reconnection");
+      }
+    } catch (e) {
+      this.logger.error("Failed to sync memory to Redis: " + e.message);
+    }
+  }
   async onModuleInit(): Promise<void> {
-    this.redis.on('connect', () => {
+    this.redis.on('connect', async () => {
       this.redisAvailable = true;
       this.logger.log('Redis available - switching to Redis storage');
+      await this.syncMemoryToRedis();
     });
     this.redis.on('close', () => {
       this.redisAvailable = false;
