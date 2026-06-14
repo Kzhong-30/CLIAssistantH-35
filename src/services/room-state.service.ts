@@ -41,31 +41,49 @@ export class RoomStateService implements OnModuleInit {
 
   private async syncMemoryToRedis(): Promise<void> {
     try {
-      for (const [roomId, room] of this.memoryRooms.entries()) {
-        await this.redis.hmset(this.ROOM_KEY_PREFIX + roomId, this.objectToRecord(room));
-        await this.redis.expire(this.ROOM_KEY_PREFIX + roomId, 86400);
-      }
-      for (const [roomId, participants] of this.memoryParticipants.entries()) {
-        for (const [participantId, participant] of participants.entries()) {
-          await this.redis.hset(this.PARTICIPANT_KEY_PREFIX + roomId, participantId, JSON.stringify(participant));
+      const roomIds = new Set<string>();
+      for (const roomId of this.memoryRooms.keys()) roomIds.add(roomId);
+      for (const roomId of this.memoryParticipants.keys()) roomIds.add(roomId);
+      for (const roomId of this.memoryWaitingQueue.keys()) roomIds.add(roomId);
+      for (const roomId of this.memoryStats.keys()) roomIds.add(roomId);
+
+      const pipeline = this.redis.pipeline();
+
+      for (const roomId of roomIds) {
+        const room = this.memoryRooms.get(roomId);
+        if (room) {
+          pipeline.hmset(this.ROOM_KEY_PREFIX + roomId, this.objectToRecord(room));
         }
-        await this.redis.expire(this.PARTICIPANT_KEY_PREFIX + roomId, 86400);
-      }
-      for (const [roomId, queue] of this.memoryWaitingQueue.entries()) {
-        if (queue.length > 0) {
-          for (const p of queue) {
-            await this.redis.rpush(this.WAITING_QUEUE_PREFIX + roomId, JSON.stringify(p));
+        pipeline.expire(this.ROOM_KEY_PREFIX + roomId, 86400);
+
+        const participants = this.memoryParticipants.get(roomId);
+        if (participants && participants.size > 0) {
+          for (const [participantId, participant] of participants.entries()) {
+            pipeline.hset(this.PARTICIPANT_KEY_PREFIX + roomId, participantId, JSON.stringify(participant));
           }
         }
-        await this.redis.expire(this.WAITING_QUEUE_PREFIX + roomId, 86400);
+        pipeline.expire(this.PARTICIPANT_KEY_PREFIX + roomId, 86400);
+
+        const queue = this.memoryWaitingQueue.get(roomId);
+        if (queue && queue.length > 0) {
+          for (const p of queue) {
+            pipeline.rpush(this.WAITING_QUEUE_PREFIX + roomId, JSON.stringify(p));
+          }
+        }
+        pipeline.expire(this.WAITING_QUEUE_PREFIX + roomId, 86400);
+
+        const stats = this.memoryStats.get(roomId);
+        if (stats) {
+          pipeline.hmset(this.STATS_KEY_PREFIX + roomId, { totalParticipants: String(stats.totalParticipants), peakParticipants: String(stats.peakParticipants) });
+        }
+        pipeline.expire(this.STATS_KEY_PREFIX + roomId, 86400);
       }
-      for (const [roomId, stats] of this.memoryStats.entries()) {
-        await this.redis.hmset(this.STATS_KEY_PREFIX + roomId, { totalParticipants: String(stats.totalParticipants), peakParticipants: String(stats.peakParticipants) });
-        await this.redis.expire(this.STATS_KEY_PREFIX + roomId, 86400);
-      }
-      const roomCount = this.memoryRooms.size;
-      if (roomCount > 0) {
-        this.logger.log("Synced " + roomCount + " rooms from memory to Redis after reconnection");
+
+      await pipeline.exec();
+
+      const syncedCount = roomIds.size;
+      if (syncedCount > 0) {
+        this.logger.log("Synced " + syncedCount + " rooms from memory to Redis after reconnection");
       }
     } catch (e) {
       this.logger.error("Failed to sync memory to Redis: " + e.message);

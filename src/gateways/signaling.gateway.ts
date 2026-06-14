@@ -116,7 +116,6 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
       });
 
       return {
-        event: 'join',
         data: {
           success: false,
           inQueue: true,
@@ -194,7 +193,6 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.logger.log(`Participant ${name} (${participantId}) joined room ${roomId}`);
 
     return {
-      event: 'join',
       data: {
         success: true,
         inQueue: false,
@@ -303,7 +301,6 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.logger.log(`Participant ${participantId} left room ${roomId}`);
 
     return {
-      event: 'leave',
       data: { success: true, participantId },
     };
   }
@@ -516,7 +513,6 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
     });
 
     return {
-      event: 'chat',
       data: { success: true, timestamp },
     };
   }
@@ -585,7 +581,7 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
         byHost: mapping.participantId,
       });
 
-      return { event: 'host-action', data: { success: true, action: 'removed', targetId } };
+      return { data: { success: true, action: "removed", targetId } };
     }
 
     return this.sendError(client, 'host-action', 'Invalid action');
@@ -601,9 +597,8 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   private sendError(client: Socket, event: string, message: string): any {
-    client.emit('error', { event, message });
+    client.emit("error", { event, message });
     return {
-      event,
       data: { success: false, error: message },
     };
   }
