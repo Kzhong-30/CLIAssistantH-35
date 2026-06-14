@@ -56,8 +56,8 @@ export class RoomStateService implements OnModuleInit {
           for (const p of queue) {
             await this.redis.rpush(this.WAITING_QUEUE_PREFIX + roomId, JSON.stringify(p));
           }
-          await this.redis.expire(this.WAITING_QUEUE_PREFIX + roomId, 86400);
         }
+        await this.redis.expire(this.WAITING_QUEUE_PREFIX + roomId, 86400);
       }
       for (const [roomId, stats] of this.memoryStats.entries()) {
         await this.redis.hmset(this.STATS_KEY_PREFIX + roomId, { totalParticipants: String(stats.totalParticipants), peakParticipants: String(stats.peakParticipants) });

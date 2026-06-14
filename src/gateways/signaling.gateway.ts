@@ -273,7 +273,7 @@ export class SignalingGateway implements OnGatewayConnection, OnGatewayDisconnec
           participantId: newParticipant.id,
         });
 
-        const socket = this.server.sockets.sockets.get(nextInQueue.socketId);
+        const socket = this.socketIdToSocketMap.get(nextInQueue.socketId);
         if (socket) {
           socket.join(roomId);
           socket.emit('queue-admitted', {

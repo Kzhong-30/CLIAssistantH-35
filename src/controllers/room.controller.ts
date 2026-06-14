@@ -36,7 +36,7 @@ export class RoomController {
   async createRoom(@Body() createRoomDto: CreateRoomDto): Promise<CreateRoomResponseDto> {
     const roomId = nanoid(12);
     const maxParticipants = createRoomDto.maxParticipants || 10;
-    const hostId = "";
+    const hostId = '';
 
     const room = await this.roomStateService.createRoom(
       roomId,
